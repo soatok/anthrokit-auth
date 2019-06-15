@@ -1,0 +1,363 @@
+<?php
+declare(strict_types=1);
+namespace Soatok\AnthroKit\Auth\Splices;
+
+use ParagonIE\ConstantTime\{
+    Base32,
+    Binary
+};
+use ParagonIE\HiddenString\HiddenString;
+use Slim\Container;
+use Soatok\AnthroKit\Auth\Shortcuts;
+use Soatok\AnthroKit\Splice;
+use Soatok\DholeCrypto\Exceptions\CryptoException;
+use Soatok\DholeCrypto\Key\SymmetricKey;
+use Soatok\DholeCrypto\Password;
+use SodiumException;
+use Twig\Environment;
+use Zend\Mail\Message;
+use Zend\Mail\Transport\TransportInterface;
+
+/**
+ * Class Accounts
+ * @package Soatok\AnthroKit\Auth\Splices
+ */
+class Accounts extends Splice
+{
+    use Shortcuts;
+
+    /** @var array<string, string|array> $config */
+    private $config;
+
+    /** @var TransportInterface $mailer */
+    private $mailer;
+
+    /** @var SymmetricKey $passwordKey */
+    private $passwordKey;
+
+    /** @var Environment $twig */
+    private $twig;
+
+    public function __construct(Container $container)
+    {
+        parent::__construct($container);
+        $this->mailer = $container['mailer'];
+        $this->passwordKey = $container->get('settings')['password-key'];
+        $this->twig = $container->get('twig');
+    }
+
+    /**
+     * @param string $login
+     * @param HiddenString $password
+     * @return int
+     * @throws \Exception
+     * @throws \SodiumException
+     */
+    public function createAccount(
+        string $login,
+        HiddenString $password
+    ): int {
+        $tableName = $this->table('accounts');
+        $fieldPrimaryKey = $this->field('accounts', 'id');
+        $fieldLogin = $this->field('accounts', 'login');
+        $fieldPasswordHash = $this->field('accounts', 'pwhash');
+
+        $exists = $this->db->exists(
+            'SELECT count(*) FROM ' . $tableName . ' WHERE ' . $fieldLogin . ' = ?',
+            $login
+        );
+        if ($exists) {
+            return 0;
+        }
+
+        $accountId = $this->db->insertGet(
+            $tableName,
+            [
+                $fieldLogin => $login
+            ],
+            $fieldPrimaryKey
+        );
+        $this->db->update(
+            $tableName,
+            [
+                $fieldPasswordHash => (new Password($this->passwordKey))
+                    ->hash($password, (string) $accountId)
+            ],
+            [
+                $fieldPrimaryKey => $accountId
+            ]
+        );
+        return $accountId;
+    }
+
+    /**
+     * @param string $login
+     * @param HiddenString $password
+     * @return int|null
+     * @throws CryptoException
+     * @throws SodiumException
+     */
+    public function loginWithPassword(string $login, HiddenString $password): ?int
+    {
+        $tableName = $this->table('accounts');
+        $fieldPrimaryKey = $this->field('accounts', 'id');
+        $fieldLogin = $this->field('accounts', 'login');
+        $fieldPasswordHash = $this->field('accounts', 'pwhash');
+
+        $row = $this->db->row(
+            'SELECT * FROM ' . $tableName . ' WHERE ' . $fieldLogin . ' = ?',
+            $login
+        );
+        if (empty($row)) {
+            return null;
+        }
+        if (empty($row[$fieldPasswordHash])) {
+            return null;
+        }
+        $valid = (new Password($this->passwordKey))->verify(
+            $password,
+            $row[$fieldPasswordHash],
+            (string) $row[$fieldPrimaryKey]
+        );
+        if (!$valid) {
+            return null;
+        }
+        return (int) $row[$fieldPrimaryKey];
+    }
+
+    /**
+     * @param int $accountId
+     * @return void
+     * @throws \Twig\Error\LoaderError
+     * @throws \Twig\Error\RuntimeError
+     * @throws \Twig\Error\SyntaxError
+     */
+    public function sendActivationEmail(int $accountId): void
+    {
+        $tableName = $this->table('accounts');
+        $fieldPrimaryKey = $this->field('accounts', 'id');
+        $fieldEmailActivation = $this->field('accounts', 'email_activation');
+
+        // Create/store token in database
+        // Create email body from template file
+        // Send email to user
+        $this->db->beginTransaction();
+        $token = Base32::encode(random_bytes(
+            $this->config['random']['email-token'] ?? 40
+        ));
+        $this->db->update(
+            $tableName,
+            [
+                $fieldEmailActivation => $token
+            ],
+            [
+                $fieldPrimaryKey => $accountId
+            ]
+        );
+        if (!$this->db->commit()) {
+            $this->db->rollBack();
+            throw new \Exception('Could not write to database');
+        }
+        $this->sendEmail(
+            $accountId,
+            'Complete Your Registration',
+            $this->twig->render(
+                $this->config['templates']['email-activate'] ?? 'email/activate.twig',
+                ['token' => $token]
+            )
+        );
+    }
+
+    /**
+     * @param int $accountId
+     * @param string $subject
+     * @param string $body
+     */
+    public function sendEmail(int $accountId, string $subject, string $body): void
+    {
+        $tableName = $this->table('accounts');
+        $fieldPrimaryKey = $this->field('accounts', 'id');
+        $fieldEmail = $this->field('accounts', 'email');
+
+        $email = $this->db->cell(
+            'SELECT ' .
+                    $fieldEmail .
+                ' FROM ' .
+                    $tableName .
+                ' WHERE ' .
+                    $fieldPrimaryKey . ' = ?',
+            $accountId
+        );
+
+        $message = new Message();
+        $message->setTo($email);
+        $message->setSubject($subject);
+        $message->setBody($body);
+        $this->mailer->send($message);
+    }
+
+    /**
+     * Create and return a device token which allows two-factor authentication
+     * to be bypassed for up to [policy-determined, default 30] days.
+     *
+     * @param int $accountId
+     * @return string
+     * @throws SodiumException
+     */
+    public function createDeviceToken(int $accountId): string
+    {
+        $tableName = $this->table('account_known_device');
+        // FK = Foreign Key
+        $fieldAccountFK = $this->field('account_known_device', 'account');
+        $fieldSelector = $this->field('account_known_device', 'selector');
+        $fieldValidator = $this->field('account_known_device', 'validator');
+
+        $selector = random_bytes(
+            $this->config['random']['device-prefix'] ?? 20
+        );
+        $returnSecret = random_bytes(
+            $this->config['random']['device-suffix'] ?? 35
+        );
+        $hashed = \sodium_crypto_generichash(
+            \ParagonIE_Sodium_Core_Util::store64_le($accountId) .
+            $selector,
+            $returnSecret
+        );
+
+        $this->db->insert($tableName, [
+            $fieldAccountFK => $accountId,
+            $fieldSelector => Base32::encodeUnpadded($selector),
+            $fieldValidator => Base32::encodeUnpadded($hashed)
+        ]);
+        return Base32::encodeUnpadded($selector . $returnSecret);
+    }
+
+    /**
+     * @param string $token
+     * @param int $accountId
+     * @return bool
+     * @throws SodiumException
+     */
+    public function checkDeviceToken(string $token, int $accountId): bool
+    {
+        $tableName = $this->table('account_known_device');
+        // FK = Foreign Key
+        $fieldAccountFK = $this->field('account_known_device', 'account');
+        $fieldCreated = $this->field('account_known_device', 'created');
+        $fieldSelector = $this->field('account_known_device', 'selector');
+        $fieldValidator = $this->field('account_known_device', 'validator');
+
+        // 20 / 5 === 4
+        // 4 <<< 3 === (4 * 8) == 32
+        $len = intdiv(($this->config['random']['device-prefix'] ?? 20), 5) << 3;
+
+        $selector = Binary::safeSubstr($token, 0, $len);
+        $validator = Binary::safeSubstr($token, $len);
+        $hashed = \sodium_crypto_generichash(
+            \ParagonIE_Sodium_Core_Util::store64_le($accountId) .
+            Base32::decode($selector),
+            Base32::decode($validator)
+        );
+        $diff = $this->config['device-token-lifetime'] ?? null;
+        if (!($diff instanceof \DateInterval)) {
+            $diff = new \DateInterval('P30D');
+        }
+
+        $expires = (new \DateTime())
+            ->sub($diff)
+            ->format(\DateTime::ATOM);
+
+        $stored = $this->db->cell(
+            "SELECT {$fieldValidator} 
+            FROM {$tableName}
+            WHERE {$fieldSelector} = ? AND {$fieldAccountFK} = ? AND {$fieldCreated} >= ?",
+            $selector,
+            $accountId,
+            $expires
+        );
+
+        return hash_equals(Base32::decode($stored), $hashed);
+    }
+
+    /**
+     * Register or Login with Twitter
+     *
+     * @param array $accessToken
+     * @return int|null
+     * @throws \Exception
+     */
+    public function twitterAccess(array $accessToken): ?int
+    {
+        $tableName = $this->table('accounts');
+        $fieldPrimaryKey = $this->field('accounts', 'id');
+        $fieldLogin = $this->field('accounts', 'login');
+        $fieldExternalAuth = $this->field('accounts', 'external_auth');
+
+        $username = preg_replace(
+            '/[^A-Za-z0-9_]+/',
+            '',
+            $accessToken['screen_name']
+        );
+        $user_id = (int) $accessToken['user_id'];
+
+        // JSONB Query
+        $exists = $this->db->cell(
+            'SELECT ' .
+                    $fieldPrimaryKey .
+                ' FROM ' .
+                    $tableName .
+                ' WHERE ' .
+                    $fieldExternalAuth .
+                ' @> ' .
+                    '\'"{"service":"twitter","user_id":"' . $user_id . '"}\''
+        );
+        if ($exists) {
+            // Account exists. Login as this user.
+            return $exists;
+        }
+
+        // Find an unused username
+        $base = $username;
+        $iterations = 1;
+        do {
+            $exists = $this->db->cell(
+                'SELECT ' .
+                    $fieldPrimaryKey .
+                ' FROM ' .
+                    $tableName .
+                ' WHERE login = ?',
+                    $username
+            );
+            if ($exists) {
+                // Dedeuplicate
+                ++$iterations;
+                $username = $base . $iterations;
+            }
+        } while ($exists);
+
+        $tableName = $this->table('accounts');
+
+        return (int) $this->db->insertGet(
+            $tableName,
+            [
+                $fieldLogin => $username,
+                $fieldExternalAuth = json_encode([
+                    'service' => 'twitter',
+                    'user_id' => $accessToken['user_id'],
+                    'username' => $accessToken['screen_name']
+                ])
+            ],
+            $fieldPrimaryKey
+        );
+    }
+
+    /**
+     * @param array $config
+     * @return self
+     */
+    public function setConfig(array $config): self
+    {
+        $this->config = $config;
+        return $this;
+    }
+}
