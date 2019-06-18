@@ -248,7 +248,8 @@ class Authorize extends Endpoint
                 // Create the account:
                 $accountId = $this->accounts->createAccount(
                     $post[$l],
-                    new HiddenString($post[$p])
+                    new HiddenString($post[$p]),
+                    $post[$e]
                 );
                 if ($accountId) {
                     $a = $this->config['session']['account_key'] ?? 'account_id';

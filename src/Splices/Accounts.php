@@ -101,17 +101,20 @@ class Accounts extends Splice
     /**
      * @param string $login
      * @param HiddenString $password
+     * @param string $email
      * @return int
      * @throws \Exception
      * @throws \SodiumException
      */
     public function createAccount(
         string $login,
-        HiddenString $password
+        HiddenString $password,
+        string $email
     ): int {
         $tableName = $this->table('accounts');
         $fieldPrimaryKey = $this->field('accounts', 'id');
         $fieldLogin = $this->field('accounts', 'login');
+        $fieldEmail = $this->field('accounts', 'email');
         $fieldPasswordHash = $this->field('accounts', 'pwhash');
 
         $exists = $this->db->exists(
@@ -132,6 +135,7 @@ class Accounts extends Splice
         $this->db->update(
             $tableName,
             [
+                $fieldEmail => $email,
                 $fieldPasswordHash => (new Password($this->passwordKey))
                     ->hash($password, (string) $accountId)
             ],
@@ -240,13 +244,14 @@ class Accounts extends Splice
                     $fieldPrimaryKey . ' = ?',
             $accountId
         );
-
-        $message = new Message();
-        $message->setFrom($this->config['email']['from'] ?? 'noreply@localhost');
-        $message->setTo($email);
-        $message->setSubject($subject);
-        $message->setBody($body);
-        $this->mailer->send($message);
+        if ($email) {
+            $message = new Message();
+            $message->setFrom($this->config['email']['from'] ?? 'noreply@localhost');
+            $message->setTo($email);
+            $message->setSubject($subject);
+            $message->setBody($body);
+            $this->mailer->send($message);
+        }
     }
 
     /**

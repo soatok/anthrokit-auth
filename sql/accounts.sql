@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS anthrokit_accounts (
     pwhash TEXT UNIQUE, -- encrypted argon2id hash
     twofactor TEXT, -- encrypted two factor auth shared secret
     active BOOLEAN DEFAULT FALSE,
+    email TEXT,
     external_auth JSONB,
     email_activation TEXT,
     created TIMESTAMP DEFAULT NOW(),
