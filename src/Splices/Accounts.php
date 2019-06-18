@@ -2,12 +2,11 @@
 declare(strict_types=1);
 namespace Soatok\AnthroKit\Auth\Splices;
 
-use ParagonIE\ConstantTime\{
-    Base32,
-    Binary
-};
+use Kelunik\TwoFactor\Oath;
+use ParagonIE\ConstantTime\{Base32, Base64UrlSafe, Binary};
 use ParagonIE\HiddenString\HiddenString;
 use Slim\Container;
+use Soatok\AnthroKit\Auth\Fursona;
 use Soatok\AnthroKit\Auth\Shortcuts;
 use Soatok\AnthroKit\Splice;
 use Soatok\DholeCrypto\Exceptions\CryptoException;
@@ -44,6 +43,59 @@ class Accounts extends Splice
         $this->mailer = $container['mailer'];
         $this->passwordKey = $container->get('settings')['password-key'];
         $this->twig = $container->get('twig');
+    }
+
+    /**
+     * @param HiddenString $code
+     * @param int|null $accountId
+     * @return bool
+     */
+    public function checkTwoFactor(HiddenString $code, ?int $accountId = null): bool
+    {
+        if ($this->config['two-factor']['level'] === Fursona::TWOFACTOR_DISABLED) {
+            return false;
+        }
+        if ($this->config['two-factor']['type'] === Fursona::TWOFACTOR_TOTP) {
+            return $this->checkTwoFactorTotp($code, $accountId);
+        }
+
+        // FIDO U2F method call goes here
+
+        throw new \RangeException('Configured value for two-factor type is invalid');
+    }
+
+    /**
+     * @param HiddenString $code
+     * @param int|null $accountId
+     * @param int $graceWindows
+     * @return bool
+     */
+    public function checkTwoFactorTotp(
+        HiddenString $code,
+        ?int $accountId = null,
+        int $graceWindows = 2
+    ): bool {
+        if (!$accountId) {
+            return false;
+        }
+        $tableName = $this->table('accounts');
+        $fieldPrimaryKey = $this->field('accounts', 'id');
+        $fieldTwoFactor = $this->field('accounts', 'twofactor');
+
+        $secretKey = $this->db->cell(
+            "SELECT {$fieldTwoFactor} FROM {$tableName} WHERE {$fieldPrimaryKey} = ?",
+            $accountId
+        );
+        if (empty($secretKey)) {
+            // Fail closed...
+            return false;
+        }
+
+        return (new Oath())->verifyTotp(
+            Base64UrlSafe::decode($secretKey),
+            $code->getString(),
+            $graceWindows
+        );
     }
 
     /**
@@ -270,7 +322,9 @@ class Accounts extends Splice
         $stored = $this->db->cell(
             "SELECT {$fieldValidator} 
             FROM {$tableName}
-            WHERE {$fieldSelector} = ? AND {$fieldAccountFK} = ? AND {$fieldCreated} >= ?",
+            WHERE {$fieldSelector} = ?
+              AND {$fieldAccountFK} = ?
+              AND {$fieldCreated} >= ?",
             $selector,
             $accountId,
             $expires
@@ -280,11 +334,35 @@ class Accounts extends Splice
     }
 
     /**
+     * @param HiddenString $string
+     * @param int $accountId
+     * @return bool
+     */
+    public function setTwoFactorSecret(HiddenString $string, int $accountId): bool
+    {
+        $tableName = $this->table('accounts');
+        $fieldPrimaryKey = $this->field('accounts', 'id');
+        $fieldTwoFactor = $this->field('accounts', 'twofactor');
+
+        $encoded = Base64UrlSafe::encode($string->getString());
+        $this->db->beginTransaction();
+        $this->db->update(
+            $tableName,
+            [
+                $fieldTwoFactor => $encoded
+            ],
+            [
+                $fieldPrimaryKey => $accountId
+            ]
+        );
+        return $this->db->commit();
+    }
+
+    /**
      * Register or Login with Twitter
      *
      * @param array $accessToken
      * @return int|null
-     * @throws \Exception
      */
     public function twitterAccess(array $accessToken): ?int
     {
@@ -337,18 +415,22 @@ class Accounts extends Splice
 
         $tableName = $this->table('accounts');
 
-        return (int) $this->db->insertGet(
-            $tableName,
-            [
-                $fieldLogin => $username,
-                $fieldExternalAuth = json_encode([
-                    'service' => 'twitter',
-                    'user_id' => $accessToken['user_id'],
-                    'username' => $accessToken['screen_name']
-                ])
-            ],
-            $fieldPrimaryKey
-        );
+        try {
+            return (int)$this->db->insertGet(
+                $tableName,
+                [
+                    $fieldLogin => $username,
+                    $fieldExternalAuth = json_encode([
+                        'service' => 'twitter',
+                        'user_id' => $accessToken['user_id'],
+                        'username' => $accessToken['screen_name']
+                    ])
+                ],
+                $fieldPrimaryKey
+            );
+        } catch (\Exception $ex) {
+            return null;
+        }
     }
 
     /**

@@ -136,18 +136,38 @@ class Authorize extends Endpoint
         if (!empty($post)) {
             $l = $keys['login'] ?? 'login';
             $p = $keys['password'] ?? 'password';
+
             $accountId = $this->accounts->loginWithPassword(
                 $post[$l],
                 new HiddenString($post[$p])
             );
-            if ($accountId) {
+            /** @var bool $needs2FA */
+            $needs2FA = $this->config['two-factor']['level'] !== Fursona::TWOFACTOR_DISABLED;
+
+            $c = $this->config['cookie']['device-token'];
+            if ($accountId && isset($_COOKIE[$c])) {
+                if ($this->accounts->checkDeviceToken($_COOKIE['c'], $accountId)) {
+                    $needs2FA = false;
+                }
+            }
+
+            // If we need 2FA...
+            if ($accountId && $needs2FA) {
+                // Set purgatory state, show 2FA form
+                $a = $this->config['session']['halfauth_key'] ?? 'halfauth_id';
+                $_SESSION[$a] = $accountId;
+                return $this->view(
+                    $this->config['templates']['two-factor'] ?? 'two-factor.twig'
+                );
+            } elseif ($accountId) {
+                // Login success
                 $a = $this->config['session']['account_key'] ?? 'account_id';
                 $_SESSION[$a] = $accountId;
-                $this->redirect(
+
+                return $this->redirect(
                     $this->config['redirect']['auth-success']
                 );
             }
-
         }
         return $this->view(
             $this->config['templates']['login'] ?? 'login.twig',
@@ -336,11 +356,69 @@ class Authorize extends Endpoint
      * @param RequestInterface $request
      * @param array $routerParams
      * @return ResponseInterface
+     *
+     * @throws ContainerException
+     * @throws LoaderError
+     * @throws RuntimeError
+     * @throws SyntaxError
+     * @throws \SodiumException
      */
-    protected function verify(
-        RequestInterface $request,
-        array $routerParams = []
-    ): ResponseInterface {
-        return $this->json($routerParams);
+    protected function verify(RequestInterface $request): ResponseInterface
+    {
+        $keys = $this->config['register']['form-keys'];
+        $code = $keys['code'];
+
+        // Do we have valid data?
+        $post = $this->post($request);
+        if ($post) {
+            $a = $this->config['session']['halfauth_key'] ?? 'halfauth_id';
+            $valid = $this->accounts->checkTwoFactor(
+                new HiddenString($post[$code]),
+                $_SESSION[$a] ?? null
+            );
+            if ($valid) {
+                $b = $this->config['session']['account_key'] ?? 'account_id';
+                // Finish logging in
+                $_SESSION[$b] = $_SESSION[$a];
+                unset($_SESSION[$a]);
+
+                $r = $keys['remember-device'] ?? 'remember-device';
+                if ($post[$r]) {
+                    // Cookie config
+                    $diff = $this->config['device-token-lifetime'] ?? null;
+                    if (!($diff instanceof \DateInterval)) {
+                        $diff = new \DateInterval('P30D');
+                    }
+                    $options = [
+                        'expires' =>
+                            (new \DateTime())
+                                ->add($diff)
+                                ->getTimestamp(),
+                        'httponly' => $this->config['cookie-config']['httponly'] ?? true,
+                        'secure' => $this->config['cookie-config']['secure'] ?? true,
+                        'samesite' => $this->config['cookie-config']['samesite'] ?? 'Strict',
+                    ];
+
+                    // Set the cookie
+                    setcookie(
+                        $this->config['cookie']['device-token'],
+                        $this->accounts->createDeviceToken($_SESSION[$b]),
+                        $options
+                    );
+                }
+                return $this->redirect(
+                    $this->config['redirect']['auth-success']
+                );
+            }
+            // POST data was submitted, but unsuccessfully. Default to return to login.
+            $a = $this->config['session']['halfauth_key'] ?? 'halfauth_id';
+            unset($_SESSION[$a]);
+            return $this->redirect(
+                $this->config['redirect']['login']
+            );
+        }
+        return $this->view(
+            $this->config['templates']['two-factor'] ?? 'two-factor.twig'
+        );
     }
 }

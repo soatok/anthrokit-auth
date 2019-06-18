@@ -10,10 +10,23 @@ class Fursona
 {
     const CONTAINER_KEY = 'anthrokit_auth';
 
+    const TWOFACTOR_DISABLED = 0;
+    const TWOFACTOR_ENABLED = 1;
+    const TWOFACTOR_REQUIRED = 2;
+    const TWOFACTOR_TOTP = 'TOTP';
+
     public static function getDefaults(): array
     {
         return [
             'allow-twitter-auth' => false,
+            'cookie-config' => [
+                'secure' => true,
+                'httponly' => true,
+                'samesite' => 'Strict'
+            ],
+            'cookie' => [
+                'device-token' => 'device_token',
+            ],
             'device-token-lifetime' =>
                 new \DateInterval('P30D'),
             'random' => [
@@ -27,6 +40,7 @@ class Fursona
                 'register' => '/register',
             ],
             'session' => [
+                'halfauth_key' => 'halfauth_id',
                 'account_key' => 'account_id'
             ],
             'sql' => [
@@ -36,6 +50,7 @@ class Fursona
                         'id' => 'accountid',
                         'login' => 'login',
                         'pwhash' => 'pwhash',
+                        'twofactor' => 'twofactor',
                         'email' => 'email',
                         'email_activation' => 'email_activation',
                         'external_auth' => 'external_auth'
@@ -54,7 +69,13 @@ class Fursona
             ],
             'templates' => [
                 'email-activate' => 'email/activate.twig',
-                'register' => 'register.twig'
+                'login' => 'login.twig',
+                'register' => 'register.twig',
+                'two-factor' => 'two-factor.twig'
+            ],
+            'two-factor' => [
+                'type' => self::TWOFACTOR_TOTP,
+                'level' => self::TWOFACTOR_ENABLED
             ]
         ];
     }
