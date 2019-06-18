@@ -108,6 +108,6 @@ class Fursona
      */
     public static function autoConfig(array $userDefined): array
     {
-        return array_merge_recursive($userDefined, self::getDefaults());
+        return $userDefined + self::getDefaults();
     }
 }
