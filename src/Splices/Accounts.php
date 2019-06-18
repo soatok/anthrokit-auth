@@ -194,7 +194,7 @@ class Accounts extends Splice
         // Create email body from template file
         // Send email to user
         $this->db->beginTransaction();
-        $token = Base32::encode(random_bytes(
+        $token = Base32::encodeUnpadded(random_bytes(
             $this->config['random']['email-token'] ?? 40
         ));
         $this->db->update(
@@ -242,6 +242,7 @@ class Accounts extends Splice
         );
 
         $message = new Message();
+        $message->setFrom($this->config['email']['from'] ?? 'noreply@localhost');
         $message->setTo($email);
         $message->setSubject($subject);
         $message->setBody($body);
@@ -431,6 +432,41 @@ class Accounts extends Splice
         } catch (\Exception $ex) {
             return null;
         }
+    }
+
+    /**
+     * @param string $token
+     * @return bool
+     */
+    public function validateEmail(string $token): bool
+    {
+        $tableName = $this->table('accounts');
+        $fieldPrimaryKey = $this->field('accounts', 'id');
+        $fieldEmailActivation = $this->field('accounts', 'email_activation');
+
+        $accountId = $this->db->cell(
+            "SELECT 
+                {$fieldPrimaryKey}
+            FROM
+                {$tableName}
+            WHERE 
+                {$fieldEmailActivation} IS NOT NULL AND {$fieldEmailActivation} = ?",
+            $token
+        );
+        if (!$accountId) {
+            $this->db->beginTransaction();
+            $this->db->update(
+                $tableName,
+                [
+                    $fieldEmailActivation => null
+                ],
+                [
+                    $fieldPrimaryKey => $accountId
+                ]
+            );
+            return $this->db->commit();
+        }
+        return false;
     }
 
     /**

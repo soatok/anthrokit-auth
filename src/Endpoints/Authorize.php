@@ -96,7 +96,7 @@ class Authorize extends Endpoint
             case 'twitter':
                 return $this->twitter($request, $routerParams);
             case 'verify':
-                return $this->verify($request, $routerParams);
+                return $this->verify($request);
             default:
                 return $this->redirect(
                     $this->config['redirect']['invalid-action'] ?? '/'
@@ -113,7 +113,28 @@ class Authorize extends Endpoint
         RequestInterface $request,
         array $routerParams = []
     ): ResponseInterface {
-        return $this->json($routerParams);
+        if (!empty($routerParams)) {
+            /** @var string $token */
+            $token = array_shift($routerParams);
+        } else {
+            $get = $this->get($request);
+            $key = $this->config['form-keys']['activate']['token'] ?? 'token';
+            /** @var string $token */
+            $token = $get[$key] ?? null;
+        }
+        if (empty($token)) {
+            return $this->redirect(
+                $this->config['redirect']['invalid-action'] ?? '/'
+            );
+        }
+        if (!$this->accounts->validateEmail($token)) {
+            return $this->redirect(
+                $this->config['redirect']['invalid-action'] ?? '/'
+            );
+        }
+        return $this->redirect(
+            $this->config['redirect']['activate-success']
+        );
     }
 
     /**
@@ -132,7 +153,7 @@ class Authorize extends Endpoint
         // Do we have valid data?
         $post = $this->post($request);
         $errors = [];
-        $keys = $this->config['login']['form-keys'];
+        $keys = $this->config['form-keys']['login'];
         if (!empty($post)) {
             $l = $keys['login'] ?? 'login';
             $p = $keys['password'] ?? 'password';
@@ -203,7 +224,7 @@ class Authorize extends Endpoint
         // Do we have valid data?
         $post = $this->post($request);
         $errors = [];
-        $keys = $this->config['register']['form-keys'];
+        $keys = $this->config['form-keys']['register'];
         if (!empty($post)) {
             $l = $keys['login'] ?? 'login';
             $p = $keys['password'] ?? 'password';
@@ -365,7 +386,7 @@ class Authorize extends Endpoint
      */
     protected function verify(RequestInterface $request): ResponseInterface
     {
-        $keys = $this->config['register']['form-keys'];
+        $keys = $this->config['form-keys']['two-factor'];
         $code = $keys['code'];
 
         // Do we have valid data?

@@ -29,11 +29,33 @@ class Fursona
             ],
             'device-token-lifetime' =>
                 new \DateInterval('P30D'),
+            'email' => [
+                'from' => 'noreply@localhost'
+            ],
+            'form-keys' => [
+                'activate' => [
+                    'token' => 'token'
+                ],
+                'login' => [
+                    'login' => 'login',
+                    'password' => 'password'
+                ],
+                'register' => [
+                    'email' => 'email',
+                    'login' => 'login',
+                    'password' => 'password'
+                ],
+                'two-factor' => [
+                    'code' => 'code',
+                    'remember-device' => 'remember-device'
+                ]
+            ],
             'random' => [
                 'email-token' => 40
             ],
             'redirect' => [
                 'auth-success' => '/',
+                'activate-success' => '/',
                 'empty-params' => '/',
                 'invalid-action' => '/',
                 'login' => '/login',
