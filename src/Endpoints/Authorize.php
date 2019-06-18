@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace Soatok\Anthrokit\Auth\Endpoints;
+namespace Soatok\AnthroKit\Auth\Endpoints;
 
 use Abraham\TwitterOAuth\{
     TwitterOAuth,
@@ -27,7 +27,7 @@ use Twig\Error\{
 
 /**
  * Class Authorize
- * @package Soatok\Anthrokit\Auth\Endpoints
+ * @package Soatok\AnthroKit\Auth\Endpoints
  *
  * Workflow:
  *
