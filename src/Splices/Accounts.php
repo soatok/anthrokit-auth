@@ -387,13 +387,13 @@ class Accounts extends Splice
         // JSONB Query
         $exists = $this->db->cell(
             'SELECT ' .
-                    $fieldPrimaryKey .
-                ' FROM ' .
-                    $tableName .
-                ' WHERE ' .
-                    $fieldExternalAuth .
-                ' @> ' .
-                    '\'"{"service":"twitter","user_id":"' . $user_id . '"}\''
+                $fieldPrimaryKey .
+            ' FROM ' .
+                $tableName .
+            ' WHERE ' .
+                $fieldExternalAuth . '->>\'service\' = \'twitter\' AND ' .
+                $fieldExternalAuth . '->>\'user_id\' = ? ',
+            $user_id
         );
         if ($exists) {
             // Account exists. Login as this user.
@@ -422,11 +422,11 @@ class Accounts extends Splice
         $tableName = $this->table('accounts');
 
         try {
-            return (int)$this->db->insertGet(
+            return (int) $this->db->insertGet(
                 $tableName,
                 [
                     $fieldLogin => $username,
-                    $fieldExternalAuth = json_encode([
+                    $fieldExternalAuth => json_encode([
                         'service' => 'twitter',
                         'user_id' => $accessToken['user_id'],
                         'username' => $accessToken['screen_name']

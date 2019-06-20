@@ -13,6 +13,7 @@ use Psr\Http\Message\{
     ResponseInterface
 };
 use Slim\Container;
+use Slim\Http\StatusCode;
 use Soatok\AnthroKit\Auth\{
     Fursona,
     Splices\Accounts
@@ -206,7 +207,6 @@ class Authorize extends Endpoint
         array $routerParams = []
     ): ResponseInterface {
         return $this->json($routerParams);
-
     }
 
     /**
@@ -303,7 +303,7 @@ class Authorize extends Endpoint
 
         // Is this a callback request?
         if (!empty($routerParams)) {
-            $arg = array_shift($routerParams);
+            $arg = array_pop($routerParams);
             if ($arg === 'callback') {
                 try {
                     return $this->twitterCallback($request, $twitter);
@@ -331,7 +331,11 @@ class Authorize extends Endpoint
                 'oauth_token' => $request_token['oauth_token']
             ]
         );
-        return $this->redirect($url);
+        return $this->redirect(
+            $url,
+            StatusCode::HTTP_SEE_OTHER,
+            true
+        );
     }
 
     /**
@@ -348,7 +352,8 @@ class Authorize extends Endpoint
             'oauth_token' => $_SESSION['twitter_oauth_token'],
             'oauth_token_secret' => $_SESSION['twitter_oauth_token_secret']
         ];
-        if (!hash_equals($request['oauth_token'], $_GET['oauth_token'])) {
+        $params = $request->getQueryParams();
+        if (!hash_equals($request_token['oauth_token'], $params['oauth_token'])) {
             return $this->redirect('/');
         }
         $twitter->setOauthToken(
@@ -359,7 +364,7 @@ class Authorize extends Endpoint
         $access_token = $twitter->oauth(
             'oauth/access_token',
             [
-                'oauth_verifier' => $_GET['oauth_verifier']
+                'oauth_verifier' => $params['oauth_verifier']
             ]
         );
 

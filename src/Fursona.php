@@ -62,8 +62,9 @@ class Fursona
                 'register' => '/register',
             ],
             'session' => [
+                'account_key' => 'account_id',
                 'halfauth_key' => 'halfauth_id',
-                'account_key' => 'account_id'
+                'logout_key' => 'logout_token'
             ],
             'sql' => [
                 'accounts' => [
