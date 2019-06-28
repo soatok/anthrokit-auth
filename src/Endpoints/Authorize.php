@@ -20,6 +20,7 @@ use Soatok\AnthroKit\Auth\{
     Splices\Accounts
 };
 use Soatok\AnthroKit\Endpoint;
+use Soatok\AnthroKit\Exceptions\InviteRequiredException;
 use Soatok\DholeCrypto\Exceptions\CryptoException;
 use Twig\Error\{
     LoaderError,
@@ -89,6 +90,8 @@ class Authorize extends Endpoint
         switch ($routerParams[$routerKey]) {
             case 'activate':
                 return $this->activate($request, $routerParams);
+            case 'invite':
+                return $this->invite($routerParams);
             case 'login':
                 return $this->login($request);
             case 'logout':
@@ -136,6 +139,32 @@ class Authorize extends Endpoint
         }
         return $this->redirect(
             $this->config['redirect']['activate-success']
+        );
+    }
+
+    /**
+     * @param array $routerParams
+     * @return ResponseInterface
+     */
+    protected function invite(array $routerParams = []): ResponseInterface
+    {
+        if (empty($routerParams)) {
+            return $this->redirect(
+                $this->config['redirect']['empty-params']
+            );
+        }
+        $inviteCode = array_shift($routerParams);
+        if ($this->accounts->validateInviteCode($inviteCode)) {
+            $a = $this->config['session']['invite_key'] ?? 'invite_key';
+            $_SESSION[$a] = $inviteCode;
+        }
+        if (!$this->config['allow-password-auth']) {
+            return $this->redirect(
+                $this->config['redirect']['twitter']
+            );
+        }
+        return $this->redirect(
+            $this->config['redirect']['register']
         );
     }
 
@@ -269,6 +298,20 @@ class Authorize extends Endpoint
                 $this->config['redirect']['twitter']
             );
         }
+        // Only allow registration if invited:
+        $a = $this->config['session']['invite_key'] ?? 'invite_key';
+        if ($this->config['require-invite-register']) {
+            if (empty($_SESSION[$a])) {
+                return $this->redirect(
+                    $this->config['redirect']['invite-required']
+                );
+            } elseif (!$this->accounts->validateInviteCode($_SESSION[$a])) {
+                return $this->redirect(
+                    $this->config['redirect']['invite-required']
+                );
+            }
+        }
+        $inviteCode = $_SESSION[$a] ?? null;
         // Do we have valid data?
         $post = $this->post($request);
         $errors = [];
@@ -297,7 +340,8 @@ class Authorize extends Endpoint
                 $accountId = $this->accounts->createAccount(
                     $post[$l],
                     new HiddenString($post[$p]),
-                    $post[$e]
+                    $post[$e],
+                    $inviteCode
                 );
                 if ($accountId) {
                     $a = $this->config['session']['account_key'] ?? 'account_id';
@@ -421,15 +465,24 @@ class Authorize extends Endpoint
             ]
         );
 
-        $accountId = $this->accounts->twitterAccess($access_token);
+        try {
+            $accountId = $this->accounts->twitterAccess($access_token);
+        } catch (InviteRequiredException $ex) {
+            return $this->redirect(
+                $this->config['redirect']['invite-required']
+            );
+        }
         if ($accountId) {
             $a = $this->config['session']['account_key'] ?? 'account_id';
             $_SESSION[$a] = $accountId;
             $_SESSION['twitter_access_token'] = $access_token;
             $this->loginCallback($accountId);
+            return $this->redirect(
+                $this->config['redirect']['auth-success']
+            );
         }
         return $this->redirect(
-            $this->config['redirect']['auth-success']
+            $this->config['redirect']['auth-failure']
         );
     }
 

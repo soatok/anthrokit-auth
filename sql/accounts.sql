@@ -22,4 +22,13 @@ CREATE TABLE IF NOT EXISTS anthrokit_account_known_device (
     created TIMESTAMP DEFAULT NOW()
 );
 
-
+CREATE TABLE anthrokit_invites (
+    inviteid BIGSERIAL PRIMARY KEY,
+    invitefrom BIGINT REFERENCES anthrokit_accounts (accountid),
+    twitter TEXT,
+    email TEXT,
+    invite_code TEXT,
+    claimed BOOLEAN DEFAULT FALSE,
+    created TIMESTAMP DEFAULT NOW(),
+    newaccountid BIGINT NULL REFERENCES anthrokit_accounts (accountid)
+);

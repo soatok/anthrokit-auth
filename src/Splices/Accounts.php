@@ -3,11 +3,18 @@ declare(strict_types=1);
 namespace Soatok\AnthroKit\Auth\Splices;
 
 use Kelunik\TwoFactor\Oath;
-use ParagonIE\ConstantTime\{Base32, Base64UrlSafe, Binary};
+use ParagonIE\ConstantTime\{
+    Base32,
+    Base64UrlSafe,
+    Binary
+};
 use ParagonIE\HiddenString\HiddenString;
 use Slim\Container;
-use Soatok\AnthroKit\Auth\Fursona;
-use Soatok\AnthroKit\Auth\Shortcuts;
+use Soatok\AnthroKit\Auth\{
+    Fursona,
+    Shortcuts
+};
+use Soatok\AnthroKit\Exceptions\InviteRequiredException;
 use Soatok\AnthroKit\Splice;
 use Soatok\DholeCrypto\Exceptions\CryptoException;
 use Soatok\DholeCrypto\Key\SymmetricKey;
@@ -99,9 +106,40 @@ class Accounts extends Splice
     }
 
     /**
+     * @param string|null $inviteCode
+     * @param int $accountId
+     * @return bool
+     */
+    public function consumeInviteCode(?string $inviteCode, int $accountId): bool
+    {
+        if (!$inviteCode) {
+            return false;
+        }
+        $tableName = $this->table('invites');
+        $fInviteCode = $this->field('invites', 'invite_code');
+        $fInviteTo = $this->field('invites', 'newaccountid');
+        $fClaimed = $this->field('invites', 'claimed');
+
+        $this->db->beginTransaction();
+        $this->db->update(
+            $tableName,
+            [
+                $fClaimed => true,
+                $fInviteTo => $accountId
+            ],
+            [
+                $fInviteCode => $inviteCode
+            ]
+        );
+        return $this->db->commit();
+    }
+
+    /**
      * @param string $login
      * @param HiddenString $password
      * @param string $email
+     * @param string|null $inviteCode
+     *
      * @return int
      * @throws \Exception
      * @throws \SodiumException
@@ -109,7 +147,8 @@ class Accounts extends Splice
     public function createAccount(
         string $login,
         HiddenString $password,
-        string $email
+        string $email,
+        ?string $inviteCode = null
     ): int {
         $tableName = $this->table('accounts');
         $fieldPrimaryKey = $this->field('accounts', 'id');
@@ -132,6 +171,9 @@ class Accounts extends Splice
             ],
             $fieldPrimaryKey
         );
+        if ($inviteCode) {
+            $this->consumeInviteCode($inviteCode, $accountId);
+        }
         $this->db->update(
             $tableName,
             [
@@ -179,6 +221,33 @@ class Accounts extends Splice
             return null;
         }
         return (int) $row[$fieldPrimaryKey];
+    }
+
+    /**
+     * @param int $fromAccountId
+     * @return string
+     * @throws \Exception
+     */
+    public function createInviteCode(int $fromAccountId): string
+    {
+        $tableName = $this->table('invites');
+        $fInviteCode = $this->field('invites', 'invite_code');
+        $fInviteFrom = $this->field('invites', 'invitefrom');
+        $fClaimed = $this->field('invites', 'claimed');
+
+        $randomCode = Base32::encodeUnpadded(random_bytes(
+            $this->config['random']['invite-token'] ?? 25
+        ));
+
+        $this->db->insert(
+            $tableName,
+            [
+                $fInviteFrom => $fromAccountId,
+                $fInviteCode => $randomCode,
+                $fClaimed => false
+            ]
+        );
+        return $randomCode;
     }
 
     /**
@@ -369,6 +438,7 @@ class Accounts extends Splice
      *
      * @param array $accessToken
      * @return int|null
+     * @throws InviteRequiredException
      */
     public function twitterAccess(array $accessToken): ?int
     {
@@ -400,6 +470,17 @@ class Accounts extends Splice
             return $exists;
         }
 
+        // Only allow registration if invited:
+        $a = $this->config['session']['invite_key'] ?? 'invite_key';
+        if ($this->config['require-invite-register']) {
+            if (empty($_SESSION[$a])) {
+                throw new InviteRequiredException();
+            } elseif (!$this->validateInviteCode($_SESSION[$a])) {
+                throw new InviteRequiredException();
+            }
+        }
+        $inviteCode = $_SESSION[$a] ?? null;
+
         // Find an unused username
         $base = $username;
         $iterations = 1;
@@ -418,11 +499,8 @@ class Accounts extends Splice
                 $username = $base . $iterations;
             }
         } while ($exists);
-
-        $tableName = $this->table('accounts');
-
         try {
-            return (int) $this->db->insertGet(
+            $accountId = (int) $this->db->insertGet(
                 $tableName,
                 [
                     $fieldLogin => $username,
@@ -434,6 +512,10 @@ class Accounts extends Splice
                 ],
                 $fieldPrimaryKey
             );
+            if ($inviteCode) {
+                $this->consumeInviteCode($inviteCode, $accountId);
+            }
+            return $accountId;
         } catch (\Exception $ex) {
             return null;
         }
@@ -472,6 +554,36 @@ class Accounts extends Splice
             return $this->db->commit();
         }
         return false;
+    }
+
+    /**
+     * Return true if...
+     *
+     * 1. The invite code exists
+     * 2. The account that invited it is still active
+     * 3. The invite code has not been claimed
+     *
+     * @param string $inviteCode
+     * @return bool
+     */
+    public function validateInviteCode(string $inviteCode): bool
+    {
+        $tableName = $this->table('invites');
+        $fInviteCode = $this->field('invites', 'invite_code');
+        $fInviteFrom = $this->field('invites', 'invitefrom');
+        $fClaimed = $this->field('invites', 'claimed');
+
+        $accTable = $this->table('accounts');
+        $accPrimaryKey = $this->field('accounts', 'id');
+        $accActive = $this->field('accounts', 'active');
+
+        return $this->db->exists(
+            "SELECT count(c.*)
+                FROM {$tableName} c
+                JOIN {$accTable} a ON c.{$fInviteFrom} = a.{$accPrimaryKey}
+                WHERE {$fInviteCode} = ? AND a.{$accActive} AND NOT c.{$fClaimed}",
+            $inviteCode
+        );
     }
 
     /**

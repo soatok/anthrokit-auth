@@ -52,13 +52,17 @@ class Fursona
                 ]
             ],
             'random' => [
-                'email-token' => 40
+                'email-token' => 40,
+                'invite-token' => 25
             ],
+            'require-invite-register' => false,
             'redirect' => [
                 'auth-success' => '/',
+                'auth-failure' => '/',
                 'activate-success' => '/',
                 'empty-params' => '/',
                 'invalid-action' => '/',
+                'invite-required' => '/',
                 'login' => '/login',
                 'logout-fail' => '/',
                 'logout-success' => '/',
@@ -67,6 +71,7 @@ class Fursona
             'session' => [
                 'account_key' => 'account_id',
                 'halfauth_key' => 'halfauth_id',
+                'invite_key' => 'invite_code',
                 'logout_key' => 'logout_token'
             ],
             'sql' => [
@@ -90,6 +95,19 @@ class Fursona
                         'created' => 'created',
                         'selector' => 'selector',
                         'validator' => 'validator'
+                    ]
+                ],
+                'invites' => [
+                    'table' => 'anthrokit_invites',
+                    'field' => [
+                        'id' => 'inviteid',
+                        'from' => 'invitefrom',
+                        'twitter' => 'twitter',
+                        'email' => 'email',
+                        'invite_code' => 'invite_code',
+                        'claimed' => 'claimed',
+                        'created' => 'created',
+                        'newaccountid' => 'newaccountid'
                     ]
                 ]
             ],
