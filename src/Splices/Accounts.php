@@ -14,7 +14,7 @@ use Soatok\AnthroKit\Auth\{
     Fursona,
     Shortcuts
 };
-use Soatok\AnthroKit\Exceptions\InviteRequiredException;
+use Soatok\AnthroKit\Auth\Exceptions\InviteRequiredException;
 use Soatok\AnthroKit\Splice;
 use Soatok\DholeCrypto\Exceptions\CryptoException;
 use Soatok\DholeCrypto\Key\SymmetricKey;

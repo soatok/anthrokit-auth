@@ -19,8 +19,8 @@ use Soatok\AnthroKit\Auth\{
     Fursona,
     Splices\Accounts
 };
+use Soatok\AnthroKit\Auth\Exceptions\InviteRequiredException;
 use Soatok\AnthroKit\Endpoint;
-use Soatok\AnthroKit\Exceptions\InviteRequiredException;
 use Soatok\DholeCrypto\Exceptions\CryptoException;
 use Twig\Error\{
     LoaderError,
