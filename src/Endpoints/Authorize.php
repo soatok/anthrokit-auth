@@ -257,7 +257,7 @@ class Authorize extends Endpoint
     protected function logout(array $routerParams = []): ResponseInterface
     {
         $a = $this->config['session']['logout_key'] ?? 'logout_key';
-        if (empty($routerParams) || empty($_SESSION['a'])) {
+        if (empty($routerParams) || empty($_SESSION[$a])) {
             return $this->redirect(
                 $this->config['redirect']['logout-fail'] ?? '/'
             );
