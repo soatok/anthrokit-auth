@@ -13,8 +13,7 @@
     "ext-sodium": "*",
     "abraham/twitteroauth": "^1|^2",
     "kelunik/two-factor": "^1",
-    "paragonie/ionizer": "^0",
-    "soatok/anthrokit": "^0.3|^1",
+    "soatok/anthrokit": "^0.4|^1",
     "slim/slim": "^3.1",
     "twig/twig": "^2",
     "zendframework/zend-mail": "^2"

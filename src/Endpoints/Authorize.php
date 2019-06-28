@@ -16,6 +16,8 @@ use Psr\Http\Message\{
 use Slim\Container;
 use Slim\Http\StatusCode;
 use Soatok\AnthroKit\Auth\{
+    Filters\LoginFilter,
+    Filters\RegisterFilter,
     Fursona,
     Splices\Accounts
 };
@@ -187,7 +189,7 @@ class Authorize extends Endpoint
             );
         }
         // Do we have valid data?
-        $post = $this->post($request);
+        $post = $this->post($request, self::TYPE_FORM, new LoginFilter($this->config));
         $errors = [];
         $keys = $this->config['form-keys']['login'];
         if (!empty($post)) {
@@ -313,7 +315,7 @@ class Authorize extends Endpoint
         }
         $inviteCode = $_SESSION[$a] ?? null;
         // Do we have valid data?
-        $post = $this->post($request);
+        $post = $this->post($request, self::TYPE_FORM, new RegisterFilter($this->config));
         $errors = [];
         $keys = $this->config['form-keys']['register'];
         if (!empty($post)) {
