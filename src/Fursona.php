@@ -18,6 +18,7 @@ class Fursona
     public static function getDefaults(): array
     {
         return [
+            'allow-password-auth' => true,
             'allow-twitter-auth' => false,
             'cookie-config' => [
                 'secure' => true,

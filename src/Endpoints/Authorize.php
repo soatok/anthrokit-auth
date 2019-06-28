@@ -152,6 +152,11 @@ class Authorize extends Endpoint
      */
     protected function login(RequestInterface $request): ResponseInterface
     {
+        if (!$this->config['allow-password-auth']) {
+            return $this->redirect(
+                $this->config['redirect']['twitter']
+            );
+        }
         // Do we have valid data?
         $post = $this->post($request);
         $errors = [];
@@ -259,6 +264,11 @@ class Authorize extends Endpoint
      */
     protected function register(RequestInterface $request): ResponseInterface
     {
+        if (!$this->config['allow-password-auth']) {
+            return $this->redirect(
+                $this->config['redirect']['twitter']
+            );
+        }
         // Do we have valid data?
         $post = $this->post($request);
         $errors = [];
@@ -323,6 +333,11 @@ class Authorize extends Endpoint
     ): ResponseInterface {
         // Ensure it's enabled
         if (!$this->config['allow-twitter-auth']) {
+            if (!$this->config['allow-password-auth']) {
+                throw new \Exception(
+                    "Password auth and Twitter auth are both disabled."
+                );
+            }
             return $this->redirect(
                 $this->config['redirect']['register']
             );
