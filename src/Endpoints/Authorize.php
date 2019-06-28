@@ -7,6 +7,7 @@ use Abraham\TwitterOAuth\{
     TwitterOAuthException
 };
 use Interop\Container\Exception\ContainerException;
+use ParagonIE\ConstantTime\Base32;
 use ParagonIE\HiddenString\HiddenString;
 use Psr\Http\Message\{
     RequestInterface,
@@ -91,7 +92,7 @@ class Authorize extends Endpoint
             case 'login':
                 return $this->login($request);
             case 'logout':
-                return $this->logout($request, $routerParams);
+                return $this->logout($routerParams);
             case 'register':
                 return $this->register($request);
             case 'twitter':
@@ -168,7 +169,7 @@ class Authorize extends Endpoint
 
             $c = $this->config['cookie']['device-token'];
             if ($accountId && isset($_COOKIE[$c])) {
-                if ($this->accounts->checkDeviceToken($_COOKIE['c'], $accountId)) {
+                if ($this->accounts->checkDeviceToken($_COOKIE[$c], $accountId)) {
                     $needs2FA = false;
                 }
             }
@@ -185,6 +186,7 @@ class Authorize extends Endpoint
                 // Login success
                 $a = $this->config['session']['account_key'] ?? 'account_id';
                 $_SESSION[$a] = $accountId;
+                $this->loginCallback($accountId);
 
                 return $this->redirect(
                     $this->config['redirect']['auth-success']
@@ -198,15 +200,51 @@ class Authorize extends Endpoint
     }
 
     /**
-     * @param RequestInterface $request
+     * @param int|null $accountId
+     */
+    protected function loginCallback(?int $accountId = null): void
+    {
+        $a = $this->config['session']['logout_key'] ?? 'logout_key';
+        try {
+            $_SESSION[$a] = Base32::encode(random_bytes(32));
+        } catch (\Exception $ex) {
+            die("RNG is broke");
+        }
+        // Important: Avoid session fixation conditions
+        session_regenerate_id(true);
+    }
+
+    /**
      * @param array $routerParams
      * @return ResponseInterface
      */
-    protected function logout(
-        RequestInterface $request,
-        array $routerParams = []
-    ): ResponseInterface {
-        return $this->json($routerParams);
+    protected function logout(array $routerParams = []): ResponseInterface
+    {
+        $a = $this->config['session']['logout_key'] ?? 'logout_key';
+        if (empty($routerParams) || empty($_SESSION['a'])) {
+            return $this->redirect(
+                $this->config['redirect']['logout-fail'] ?? '/'
+            );
+        }
+        $token = array_shift($routerParams);
+        if (!hash_equals($_SESSION[$a], $token)) {
+            return $this->redirect(
+                $this->config['redirect']['logout-fail'] ?? '/'
+            );
+        }
+        $b = $this->config['session']['account_key'] ?? 'account_id';
+        unset($_SESSION[$b]);
+
+        $c = $this->config['session']['halfauth_key'] ?? 'halfauth_id';
+        if (isset($_SESSION[$c])) {
+            unset($_SESSION[$c]);
+        }
+
+        // Important: Avoid session fixation conditions
+        session_regenerate_id(true);
+        return $this->redirect(
+            $this->config['redirect']['logout-success'] ?? '/'
+        );
     }
 
     /**
@@ -373,6 +411,7 @@ class Authorize extends Endpoint
             $a = $this->config['session']['account_key'] ?? 'account_id';
             $_SESSION[$a] = $accountId;
             $_SESSION['twitter_access_token'] = $access_token;
+            $this->loginCallback($accountId);
         }
         return $this->redirect(
             $this->config['redirect']['auth-success']
@@ -433,6 +472,7 @@ class Authorize extends Endpoint
                         $options
                     );
                 }
+                $this->loginCallback($_SESSION[$b]);
                 return $this->redirect(
                     $this->config['redirect']['auth-success']
                 );

@@ -59,6 +59,8 @@ class Fursona
                 'empty-params' => '/',
                 'invalid-action' => '/',
                 'login' => '/login',
+                'logout-fail' => '/',
+                'logout-success' => '/',
                 'register' => '/register',
             ],
             'session' => [
