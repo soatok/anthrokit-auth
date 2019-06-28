@@ -242,7 +242,7 @@ class Authorize extends Endpoint
     {
         $a = $this->config['session']['logout_key'] ?? 'logout_key';
         try {
-            $_SESSION[$a] = Base32::encode(random_bytes(32));
+            $_SESSION[$a] = Base32::encodeUnpadded(random_bytes(32));
         } catch (\Exception $ex) {
             die("RNG is broke");
         }
