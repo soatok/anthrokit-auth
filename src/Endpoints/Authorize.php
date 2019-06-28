@@ -276,6 +276,7 @@ class Authorize extends Endpoint
             unset($_SESSION[$c]);
         }
 
+        $_SESSION = [];
         // Important: Avoid session fixation conditions
         session_regenerate_id(true);
         return $this->redirect(
