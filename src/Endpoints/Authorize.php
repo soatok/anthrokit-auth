@@ -455,6 +455,8 @@ class Authorize extends Endpoint
         ];
         $params = $request->getQueryParams();
         if (!hash_equals($request_token['oauth_token'], $params['oauth_token'])) {
+            unset($_SESSION['twitter_oauth_token']);
+            unset($_SESSION['twitter_oauth_token_secret']);
             return $this->redirect('/');
         }
         $twitter->setOauthToken(
