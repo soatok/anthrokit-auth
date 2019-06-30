@@ -262,6 +262,7 @@ class Authorize extends Endpoint
                 $this->config['redirect']['logout-fail'] ?? '/'
             );
         }
+        array_shift($routerParams);
         $token = array_shift($routerParams);
         if (!hash_equals($_SESSION[$a], $token)) {
             return $this->redirect(
