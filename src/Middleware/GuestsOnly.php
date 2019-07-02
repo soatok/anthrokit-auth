@@ -21,7 +21,7 @@ class GuestsOnly extends Middleware
         callable $next
     ): MessageInterface {
         if (!empty($_SESSION['account_id'])) {
-            header('Location: /');
+            @header('Location: /');
             exit;
         }
         return $next($request, $response);
