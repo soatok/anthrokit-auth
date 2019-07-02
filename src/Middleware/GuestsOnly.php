@@ -7,6 +7,12 @@ use Psr\Http\Message\{
     RequestInterface,
     ResponseInterface
 };
+use Slim\Http\{
+    Headers,
+    Response,
+    StatusCode
+};
+use Soatok\AnthroKit\Auth\Fursona;
 use Soatok\AnthroKit\Middleware;
 
 /**
@@ -20,9 +26,17 @@ class GuestsOnly extends Middleware
         ResponseInterface $response,
         callable $next
     ): MessageInterface {
-        if (!empty($_SESSION['account_id'])) {
-            @header('Location: /');
-            exit;
+        $config = Fursona::autoConfig(
+            $this->container->get(Fursona::CONTAINER_KEY) ?? []
+        );
+        $key = $config['session']['account_key'] ?? 'account_id';
+        if (!empty($_SESSION[$key])) {
+            return new Response(
+                StatusCode::HTTP_FOUND,
+                new Headers([
+                    'Location' => $config['redirect']['auth-success']
+                ])
+            );
         }
         return $next($request, $response);
     }
