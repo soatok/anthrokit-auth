@@ -525,7 +525,7 @@ class Authorize extends Endpoint
             if ($valid) {
                 $b = $this->config['session']['account_key'] ?? 'account_id';
                 // Finish logging in
-                $_SESSION[$b] = $this->accounts->throwIfInactive($_SESSION[$a]);
+                $_SESSION[$b] = $this->accounts->throwIfBanned($_SESSION[$a]);
                 unset($_SESSION[$a]);
 
                 $r = $keys['remember-device'] ?? 'remember-device';

@@ -219,7 +219,7 @@ class Accounts extends Splice
         if (!$valid) {
             return null;
         }
-        return $this->throwIfInactive((int) $row[$fieldPrimaryKey]);
+        return $this->throwIfBanned((int) $row[$fieldPrimaryKey]);
     }
 
     /**
@@ -488,7 +488,7 @@ class Accounts extends Splice
         );
         if ($exists) {
             // Account exists. Login as this user.
-            return $this->throwIfInactive($exists);
+            return $this->throwIfBanned($exists);
         }
 
         // Only allow registration if invited:
