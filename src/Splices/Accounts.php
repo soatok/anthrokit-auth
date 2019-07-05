@@ -10,10 +10,7 @@ use ParagonIE\ConstantTime\{
 };
 use ParagonIE\HiddenString\HiddenString;
 use Slim\Container;
-use Soatok\AnthroKit\Auth\{
-    Fursona,
-    Shortcuts
-};
+use Soatok\AnthroKit\Auth\{Exceptions\AccountBannedException, Fursona, Shortcuts};
 use Soatok\AnthroKit\Auth\Exceptions\InviteRequiredException;
 use Soatok\AnthroKit\Splice;
 use Soatok\DholeCrypto\Exceptions\CryptoException;
@@ -155,6 +152,7 @@ class Accounts extends Splice
         $fieldLogin = $this->field('accounts', 'login');
         $fieldEmail = $this->field('accounts', 'email');
         $fieldPasswordHash = $this->field('accounts', 'pwhash');
+        $fieldActive = $this->field('accounts', 'active');
 
         $exists = $this->db->exists(
             'SELECT count(*) FROM ' . $tableName . ' WHERE ' . $fieldLogin . ' = ?',
@@ -167,6 +165,7 @@ class Accounts extends Splice
         $accountId = $this->db->insertGet(
             $tableName,
             [
+                $fieldActive => true,
                 $fieldLogin => $login
             ],
             $fieldPrimaryKey
@@ -220,7 +219,7 @@ class Accounts extends Splice
         if (!$valid) {
             return null;
         }
-        return (int) $row[$fieldPrimaryKey];
+        return $this->throwIfInactive((int) $row[$fieldPrimaryKey]);
     }
 
     /**
@@ -434,6 +433,27 @@ class Accounts extends Splice
     }
 
     /**
+     * Check that the account has not been banned.
+     *
+     * @param int $accountId
+     * @return int
+     * @throws AccountBannedException
+     */
+    public function throwIfBanned(int $accountId): int
+    {
+        $tableName = $this->table('accounts');
+        $fieldPrimaryKey = $this->field('accounts', 'id');
+        $fieldActive = $this->field('accounts', 'active');
+        if (!$this->db->exists(
+            "SELECT {$fieldActive} FROM {$tableName} WHERE {$fieldPrimaryKey} = ?",
+            $accountId
+        )) {
+            throw new AccountBannedException('Your account has been deactivated');
+        }
+        return $accountId;
+    }
+
+    /**
      * Register or Login with Twitter
      *
      * @param array $accessToken
@@ -444,6 +464,7 @@ class Accounts extends Splice
     {
         $tableName = $this->table('accounts');
         $fieldPrimaryKey = $this->field('accounts', 'id');
+        $fieldActive = $this->field('accounts', 'active');
         $fieldLogin = $this->field('accounts', 'login');
         $fieldExternalAuth = $this->field('accounts', 'external_auth');
 
@@ -467,7 +488,7 @@ class Accounts extends Splice
         );
         if ($exists) {
             // Account exists. Login as this user.
-            return $exists;
+            return $this->throwIfInactive($exists);
         }
 
         // Only allow registration if invited:
@@ -503,6 +524,7 @@ class Accounts extends Splice
             $accountId = (int) $this->db->insertGet(
                 $tableName,
                 [
+                    $fieldActive => true,
                     $fieldLogin => $username,
                     $fieldExternalAuth => json_encode([
                         'service' => 'twitter',

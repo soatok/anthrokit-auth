@@ -15,12 +15,11 @@ use Psr\Http\Message\{
 };
 use Slim\Container;
 use Slim\Http\StatusCode;
-use Soatok\AnthroKit\Auth\{
+use Soatok\AnthroKit\Auth\{Exceptions\AccountBannedException,
     Filters\LoginFilter,
     Filters\RegisterFilter,
     Fursona,
-    Splices\Accounts
-};
+    Splices\Accounts};
 use Soatok\AnthroKit\Auth\Exceptions\InviteRequiredException;
 use Soatok\AnthroKit\Endpoint;
 use Soatok\DholeCrypto\Exceptions\CryptoException;
@@ -89,25 +88,31 @@ class Authorize extends Endpoint
             );
         }
         $routerKey = $this->config['router']['action-key'] ?? 'action';
-        switch ($routerParams[$routerKey]) {
-            case 'activate':
-                return $this->activate($request, $routerParams);
-            case 'invite':
-                return $this->invite($routerParams);
-            case 'login':
-                return $this->login($request);
-            case 'logout':
-                return $this->logout($routerParams);
-            case 'register':
-                return $this->register($request);
-            case 'twitter':
-                return $this->twitter($request, $routerParams);
-            case 'verify':
-                return $this->verify($request);
-            default:
-                return $this->redirect(
-                    $this->config['redirect']['invalid-action'] ?? '/'
-                );
+        try {
+            switch ($routerParams[$routerKey]) {
+                case 'activate':
+                    return $this->activate($request, $routerParams);
+                case 'invite':
+                    return $this->invite($routerParams);
+                case 'login':
+                    return $this->login($request);
+                case 'logout':
+                    return $this->logout($routerParams);
+                case 'register':
+                    return $this->register($request);
+                case 'twitter':
+                    return $this->twitter($request, $routerParams);
+                case 'verify':
+                    return $this->verify($request);
+                default:
+                    return $this->redirect(
+                        $this->config['redirect']['invalid-action'] ?? '/'
+                    );
+            }
+        } catch (AccountBannedException $ex) {
+            return $this->redirect(
+                $this->config['redirect']['account-banned'] ?? '/'
+            );
         }
     }
 
@@ -520,7 +525,7 @@ class Authorize extends Endpoint
             if ($valid) {
                 $b = $this->config['session']['account_key'] ?? 'account_id';
                 // Finish logging in
-                $_SESSION[$b] = $_SESSION[$a];
+                $_SESSION[$b] = $this->accounts->throwIfInactive($_SESSION[$a]);
                 unset($_SESSION[$a]);
 
                 $r = $keys['remember-device'] ?? 'remember-device';
