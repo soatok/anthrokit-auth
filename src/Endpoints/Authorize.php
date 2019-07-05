@@ -155,6 +155,7 @@ class Authorize extends Endpoint
                 $this->config['redirect']['empty-params']
             );
         }
+        array_shift($routerParams);
         $inviteCode = array_shift($routerParams);
         if ($this->accounts->validateInviteCode($inviteCode)) {
             $a = $this->config['session']['invite_key'] ?? 'invite_key';
