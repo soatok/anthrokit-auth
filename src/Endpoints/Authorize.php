@@ -414,7 +414,13 @@ class Authorize extends Endpoint
             if ($arg === 'callback') {
                 try {
                     return $this->twitterCallback($request, $twitter);
-                } catch (\Exception $ex) {
+                } catch (TwitterOAuthException $ex) {
+                    return $this->redirect(
+                        $this->config['redirect']['twitter-error'] . '?' .
+                        http_build_query([
+                            'error' => $ex->getMessage()
+                        ])
+                    );
                 }
             }
         }
@@ -429,7 +435,10 @@ class Authorize extends Endpoint
             );
         } catch (TwitterOAuthException $ex) {
             return $this->redirect(
-                $this->config['redirect']['auth-failure']
+                $this->config['redirect']['twitter-error'] . '?' .
+                http_build_query([
+                    'error' => $ex->getMessage()
+                ])
             );
         }
 
