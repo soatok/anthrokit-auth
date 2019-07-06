@@ -21,7 +21,7 @@ class RegisterFilter extends InputFilterContainer
         if (!$config) {
             throw new \Exception('Container not passed to constructor');
         }
-        $keys = $config['form-keys']['login'];
+        $keys = $config['form-keys']['register'];
         $this->addFilter($keys['login'], new StringFilter());
         $this->addFilter($keys['password'], new StringFilter());
         $this->addFilter($keys['email'], new StringFilter());
