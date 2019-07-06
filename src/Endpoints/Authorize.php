@@ -14,6 +14,7 @@ use Psr\Http\Message\{
     ResponseInterface
 };
 use Slim\Container;
+use Slim\Http\Request;
 use Slim\Http\StatusCode;
 use Soatok\AnthroKit\Auth\{Exceptions\AccountBannedException,
     Filters\LoginFilter,
@@ -464,12 +465,15 @@ class Authorize extends Endpoint
      * @param RequestInterface $request
      * @param TwitterOAuth $twitter
      * @return ResponseInterface
+     *
+     * @throws AccountBannedException
      * @throws TwitterOAuthException
      */
     protected function twitterCallback(
         RequestInterface $request,
         TwitterOAuth $twitter
     ): ResponseInterface {
+        /** @var Request $request */
         $request_token = [
             'oauth_token' => $_SESSION['twitter_oauth_token'],
             'oauth_token_secret' => $_SESSION['twitter_oauth_token_secret']
@@ -478,7 +482,9 @@ class Authorize extends Endpoint
         if (!hash_equals($request_token['oauth_token'], $params['oauth_token'])) {
             unset($_SESSION['twitter_oauth_token']);
             unset($_SESSION['twitter_oauth_token_secret']);
-            return $this->redirect('/');
+            return $this->redirect(
+                $this->config['redirect']['auth-failure']
+            );
         }
         $twitter->setOauthToken(
             $request_token['oauth_token'],

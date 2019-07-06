@@ -458,6 +458,8 @@ class Accounts extends Splice
      *
      * @param array $accessToken
      * @return int|null
+     *
+     * @throws AccountBannedException
      * @throws InviteRequiredException
      */
     public function twitterAccess(array $accessToken): ?int

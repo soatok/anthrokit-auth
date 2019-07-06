@@ -57,6 +57,7 @@ class Fursona
             ],
             'require-invite-register' => false,
             'redirect' => [
+                'account-banned' => '/',
                 'auth-success' => '/',
                 'auth-failure' => '/',
                 'activate-success' => '/',
