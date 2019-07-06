@@ -420,12 +420,18 @@ class Authorize extends Endpoint
         }
 
         /** @var array<string, string> $request_token */
-        $request_token = $twitter->oauth(
-            'oauth/request_token',
-            [
-                'oauth_callback' => $callback
-            ]
-        );
+        try {
+            $request_token = $twitter->oauth(
+                'oauth/request_token',
+                [
+                    'oauth_callback' => $callback
+                ]
+            );
+        } catch (TwitterOAuthException $ex) {
+            return $this->redirect(
+                $this->config['redirect']['auth-failure']
+            );
+        }
 
         if (!empty($request_token['oauth_callback_confirmed'])) {
             $_SESSION['twitter_oauth_token'] = $request_token['oauth_token'];
@@ -500,9 +506,9 @@ class Authorize extends Endpoint
 
     /**
      * @param RequestInterface $request
-     * @param array $routerParams
      * @return ResponseInterface
      *
+     * @throws AccountBannedException
      * @throws ContainerException
      * @throws LoaderError
      * @throws RuntimeError
