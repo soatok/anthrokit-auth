@@ -58,7 +58,10 @@ class Authorize extends Endpoint
     {
         parent::__construct($container);
         $config = $container->get(Fursona::CONTAINER_KEY) ?? [];
-        $this->config = Fursona::autoConfig($config);
+        if (empty($config['auto-configured'])) {
+            $config = Fursona::autoConfig($config);
+        }
+        $this->config = $config;
         $this->accounts = $this->splice('Accounts');
         $this->accounts->setConfig($this->config);
     }

@@ -20,6 +20,7 @@ class Fursona
         return [
             'allow-password-auth' => true,
             'allow-twitter-auth' => false,
+            'auto-configured' => true,
             'cookie-config' => [
                 'secure' => true,
                 'httponly' => true,
