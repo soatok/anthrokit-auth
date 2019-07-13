@@ -360,7 +360,7 @@ class Authorize extends Endpoint
                 if ($accountId) {
                     $a = $this->config['session']['account_key'] ?? 'account_id';
                     $_SESSION[$a] = $accountId;
-                    $this->accounts->sendActivationEmail($accountId);
+                    $this->accounts->sendActivationEmail($accountId, $post[$l]);
                     $this->view(
                         $this->config['templates']['register-success'] ?? 'register.twig',
                         ['success' => true]
@@ -382,6 +382,7 @@ class Authorize extends Endpoint
      * @param RequestInterface $request
      * @param array $routerParams
      * @return ResponseInterface
+     * @throws AccountBannedException
      * @throws ContainerException
      * @throws TwitterOAuthException
      */

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace Soatok\AnthroKit\Auth\Middleware;
 
+use ParagonIE\ConstantTime\Base32;
 use Psr\Http\Message\{
     MessageInterface,
     RequestInterface,
@@ -37,6 +38,15 @@ class AuthorizedUsersOnly extends Middleware
                     'Location' => $config['redirect']['login']
                 ])
             );
+        } else {
+            // Ensure logout CSRF token is defined.
+            $k2 = $config['session']['logout_key'] ?? 'logout_key';
+            if (empty($_SESSION[$k2])) {
+                try {
+                    $_SESSION[$k2] = Base32::encodeUnpadded(random_bytes(32));
+                } catch (\Exception $ex) {
+                }
+            }
         }
         return $next($request, $response);
     }

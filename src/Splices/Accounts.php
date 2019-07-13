@@ -251,12 +251,13 @@ class Accounts extends Splice
 
     /**
      * @param int $accountId
+     * @param string $username
      * @return void
      * @throws \Twig\Error\LoaderError
      * @throws \Twig\Error\RuntimeError
      * @throws \Twig\Error\SyntaxError
      */
-    public function sendActivationEmail(int $accountId): void
+    public function sendActivationEmail(int $accountId, string $username = ''): void
     {
         $tableName = $this->table('accounts');
         $fieldPrimaryKey = $this->field('accounts', 'id');
@@ -282,12 +283,21 @@ class Accounts extends Splice
             $this->db->rollBack();
             throw new \Exception('Could not write to database');
         }
+
+        $url = Fursona::isHTTPS() ? 'https' : 'http';
+        $url .= '://';
+        $url .= $_SERVER['HTTP_HOST'];
+
         $this->sendEmail(
             $accountId,
             'Complete Your Registration',
             $this->twig->render(
                 $this->config['templates']['email-activate'] ?? 'email/activate.twig',
-                ['token' => $token]
+                [
+                    'base_url' => $url,
+                    'token' => $token,
+                    'username' => $username
+                ]
             )
         );
     }

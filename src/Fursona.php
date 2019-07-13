@@ -2,6 +2,8 @@
 declare(strict_types=1);
 namespace Soatok\AnthroKit\Auth;
 
+use Psr\Http\Message\ServerRequestInterface;
+
 /**
  * Class Fursona
  * @package Soatok\AnthroKit\Auth
@@ -126,6 +128,23 @@ class Fursona
                 'level' => self::TWOFACTOR_ENABLED
             ]
         ];
+    }
+
+    /**
+     * @param ServerRequestInterface|null $request
+     * @return bool
+     */
+    public static function isHTTPS(?ServerRequestInterface $request = null): bool
+    {
+        if ($request) {
+            $server = $request->getServerParams();
+        } else {
+            $server = $_SERVER;
+        }
+        if (empty($server['HTTPS'])) {
+            return false;
+        }
+        return $server['HTTPS'] !== 'off';
     }
 
     /**
