@@ -62,6 +62,7 @@ class Authorize extends Endpoint
             $config = Fursona::autoConfig($config);
         }
         $this->config = $config;
+        /** @var Accounts accounts */
         $this->accounts = $this->splice('Accounts');
         $this->accounts->setConfig($this->config);
     }
@@ -600,6 +601,7 @@ class Authorize extends Endpoint
                     ];
 
                     // Set the cookie
+                    /** @psalm-suppress InvalidArgument PHP 7.3 */
                     setcookie(
                         $this->config['cookie']['device-token'],
                         $this->accounts->createDeviceToken($_SESSION[$b]),

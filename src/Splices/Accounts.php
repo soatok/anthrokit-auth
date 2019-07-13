@@ -16,6 +16,7 @@ use Soatok\AnthroKit\Splice;
 use Soatok\DholeCrypto\Exceptions\CryptoException;
 use Soatok\DholeCrypto\Key\SymmetricKey;
 use Soatok\DholeCrypto\Password;
+use Soatok\DholeCrypto\Symmetric;
 use SodiumException;
 use Twig\Environment;
 use Zend\Mail\Message;
@@ -73,6 +74,8 @@ class Accounts extends Splice
      * @param int|null $accountId
      * @param int $graceWindows
      * @return bool
+     * @throws CryptoException
+     * @throws SodiumException
      */
     public function checkTwoFactorTotp(
         HiddenString $code,
@@ -96,7 +99,13 @@ class Accounts extends Splice
         }
 
         return (new Oath())->verifyTotp(
-            Base64UrlSafe::decode($secretKey),
+            Base64UrlSafe::decode(
+                Symmetric::decryptWithAd(
+                    $secretKey,
+                    $this->passwordKey,
+                    pack('P', $accountId)
+                )->getString()
+            ),
             $code->getString(),
             $graceWindows
         );
@@ -234,15 +243,12 @@ class Accounts extends Splice
         HiddenString $secret,
         int $graceWindows = 2
     ): bool {
-        $valid = (new Oath())->verifyTotp(
-            Base32::decode($secret->getString()),
+        $rawSecret = Base32::decode($secret->getString());
+        return (new Oath())->verifyTotp(
+            $rawSecret,
             $challenge,
             $graceWindows
         );
-        if (!$valid) {
-            return false;
-        }
-
     }
 
     /**
@@ -444,6 +450,7 @@ class Accounts extends Splice
      * @param HiddenString $string
      * @param int $accountId
      * @return bool
+     * @throws SodiumException
      */
     public function setTwoFactorSecret(HiddenString $string, int $accountId): bool
     {
@@ -452,11 +459,16 @@ class Accounts extends Splice
         $fieldTwoFactor = $this->field('accounts', 'twofactor');
 
         $encoded = Base64UrlSafe::encode($string->getString());
+        $encrypted = Symmetric::encryptWithAd(
+            new HiddenString($encoded),
+            $this->passwordKey,
+            pack('P', $accountId)
+        );
         $this->db->beginTransaction();
         $this->db->update(
             $tableName,
             [
-                $fieldTwoFactor => $encoded
+                $fieldTwoFactor => $encrypted
             ],
             [
                 $fieldPrimaryKey => $accountId

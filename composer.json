@@ -1,5 +1,22 @@
 {
   "name": "soatok/anthrokit-auth",
+  "description": "Authentication package for AnthroKit (Slim Framework 3)",
+  "keywords": [
+    "authentication",
+    "password hashing",
+    "twitter",
+    "anthrokit",
+    "furry",
+    "furries",
+    "furry fandom",
+    "two-factor authentication",
+    "multi-factor authentication",
+    "Slim",
+    "Slim Framework",
+    "2FA",
+    "MFA"
+  ],
+  "license": "ISC",
   "autoload": {
     "psr-4": {
       "Soatok\\AnthroKit\\Auth\\": "src/"
