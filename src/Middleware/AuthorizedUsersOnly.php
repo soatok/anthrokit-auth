@@ -32,6 +32,9 @@ class AuthorizedUsersOnly extends Middleware
         );
         $key = $config['session']['account_key'] ?? 'account_id';
         if (empty($_SESSION[$key])) {
+            // Store URI for post-auth return
+            $k2 = $config['session']['auth_redirect_key'] ?? 'auth_redirect';
+            $_SESSION[$k2] = $request->getUri()->getPath();
             return new Response(
                 StatusCode::HTTP_FOUND,
                 new Headers([

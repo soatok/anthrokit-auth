@@ -185,6 +185,7 @@ class Authorize extends Endpoint
      * @param RequestInterface $request
      * @return ResponseInterface
      *
+     * @throws AccountBannedException
      * @throws ContainerException
      * @throws CryptoException
      * @throws LoaderError
@@ -235,6 +236,12 @@ class Authorize extends Endpoint
                 $_SESSION[$a] = $accountId;
                 $this->loginCallback($accountId);
 
+                $b = $this->config['session']['auth_redirect_key'] ?? 'auth_redirect';
+                if (isset($_SESSION[$b])) {
+                    return $this->redirect(
+                        $_SESSION[$b]
+                    );
+                }
                 return $this->redirect(
                     $this->config['redirect']['auth-success']
                 );
@@ -544,6 +551,10 @@ class Authorize extends Endpoint
             $_SESSION[$a] = $accountId;
             $_SESSION['twitter_access_token'] = $access_token;
             $this->loginCallback($accountId);
+            $b = $this->config['session']['auth_redirect_key'] ?? 'auth_redirect';
+            if (isset($_SESSION[$b])) {
+                return $this->redirect($_SESSION[$b]);
+            }
             return $this->redirect(
                 $this->config['redirect']['auth-success']
             );
@@ -609,6 +620,10 @@ class Authorize extends Endpoint
                     );
                 }
                 $this->loginCallback($_SESSION[$b]);
+                $c = $this->config['session']['auth_redirect_key'] ?? 'auth_redirect';
+                if (isset($_SESSION[$b])) {
+                    return $this->redirect($_SESSION[$c]);
+                }
                 return $this->redirect(
                     $this->config['redirect']['auth-success']
                 );

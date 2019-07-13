@@ -78,6 +78,7 @@ class Fursona
             ],
             'session' => [
                 'account_key' => 'account_id',
+                'auth_redirect_key' => 'auth_redirect',
                 'halfauth_key' => 'halfauth_id',
                 'invite_key' => 'invite_code',
                 'register_2fa_key' => 'register_2fa_key',
