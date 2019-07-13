@@ -25,5 +25,6 @@ class RegisterFilter extends InputFilterContainer
         $this->addFilter($keys['login'], new StringFilter());
         $this->addFilter($keys['password'], new StringFilter());
         $this->addFilter($keys['email'], new StringFilter());
+        $this->addFilter($keys['two-factor-challenge'], new StringFilter());
     }
 }

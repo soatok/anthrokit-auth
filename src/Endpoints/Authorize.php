@@ -312,6 +312,12 @@ class Authorize extends Endpoint
                 $this->config['redirect']['twitter']
             );
         }
+        // Two-factor authentication challenge.
+        $sessKey = $this->config['session']['register_2fa_key'];
+        if (empty($_SESSION[$sessKey])) {
+            $_SESSION[$sessKey] = Base32::encodeUnpadded(random_bytes(20));
+        }
+
         // Only allow registration if invited:
         $a = $this->config['session']['invite_key'] ?? 'invite_key';
         if ($this->config['require-invite-register']) {
@@ -334,6 +340,7 @@ class Authorize extends Endpoint
             $l = $keys['login'] ?? 'login';
             $p = $keys['password'] ?? 'password';
             $e = $keys['email'] ?? 'email';
+            $chal = $keys['two-factor-challenge'] ?? 'two-factor-challenge';
 
             if (empty($post[$l])) {
                 $errors []= 'Username must be provided';
@@ -349,6 +356,21 @@ class Authorize extends Endpoint
                 $errors []= 'Not a valid email address';
             }
 
+            /** @var string $twoFactor */
+            $twoFactor = '';
+            if (empty($post[$chal]) && !empty($this->config['require-two-factor-auth'])) {
+                $errors []= 'Two-factor authentication is not optional.';
+            } elseif (!empty($post[$chal])) {
+                if ($this->accounts->registrationTotpCheck(
+                    $post[$chal],
+                    new HiddenString($_SESSION[$sessKey])
+                )) {
+                    $twoFactor = $_SESSION[$sessKey];
+                } else {
+                    $errors []= 'Invalid two-factor authentication code.';
+                }
+            }
+
             if (empty($errors)) {
                 // Create the account:
                 $accountId = $this->accounts->createAccount(
@@ -358,6 +380,12 @@ class Authorize extends Endpoint
                     $inviteCode
                 );
                 if ($accountId) {
+                    if ($twoFactor) {
+                        $this->accounts->setTwoFactorSecret(
+                            new HiddenString(Base32::decode($twoFactor)),
+                            $accountId
+                        );
+                    }
                     $a = $this->config['session']['account_key'] ?? 'account_id';
                     $_SESSION[$a] = $accountId;
                     $this->accounts->sendActivationEmail($accountId, $post[$l]);
@@ -374,7 +402,7 @@ class Authorize extends Endpoint
         }
         return $this->view(
             $this->config['templates']['register'] ?? 'register.twig',
-            ['post' => $post]
+            ['post' => $post, 'two_factor' => $_SESSION[$sessKey]]
         );
     }
 

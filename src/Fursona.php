@@ -47,7 +47,8 @@ class Fursona
                 'register' => [
                     'email' => 'email',
                     'login' => 'login',
-                    'password' => 'password'
+                    'password' => 'password',
+                    'two-factor-challenge' => 'two-factor-challenge'
                 ],
                 'two-factor' => [
                     'code' => 'code',
@@ -59,6 +60,7 @@ class Fursona
                 'invite-token' => 25
             ],
             'require-invite-register' => false,
+            'require-two-factor-auth' => true,
             'redirect' => [
                 'account-banned' => '/',
                 'auth-success' => '/',
@@ -78,6 +80,7 @@ class Fursona
                 'account_key' => 'account_id',
                 'halfauth_key' => 'halfauth_id',
                 'invite_key' => 'invite_code',
+                'register_2fa_key' => 'register_2fa_key',
                 'logout_key' => 'logout_token'
             ],
             'sql' => [

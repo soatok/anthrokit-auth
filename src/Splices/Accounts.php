@@ -191,6 +191,7 @@ class Accounts extends Splice
      * @param string $login
      * @param HiddenString $password
      * @return int|null
+     * @throws AccountBannedException
      * @throws CryptoException
      * @throws SodiumException
      */
@@ -220,6 +221,28 @@ class Accounts extends Splice
             return null;
         }
         return $this->throwIfBanned((int) $row[$fieldPrimaryKey]);
+    }
+
+    /**
+     * @param string $challenge
+     * @param HiddenString $secret
+     * @param int $graceWindows
+     * @return bool
+     */
+    public function registrationTotpCheck(
+        string $challenge,
+        HiddenString $secret,
+        int $graceWindows = 2
+    ): bool {
+        $valid = (new Oath())->verifyTotp(
+            Base32::decode($secret->getString()),
+            $challenge,
+            $graceWindows
+        );
+        if (!$valid) {
+            return false;
+        }
+
     }
 
     /**
