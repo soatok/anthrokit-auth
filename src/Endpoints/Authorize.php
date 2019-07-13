@@ -385,6 +385,7 @@ class Authorize extends Endpoint
                             new HiddenString(Base32::decode($twoFactor)),
                             $accountId
                         );
+                        unset($_SESSION[$sessKey]);
                     }
                     $a = $this->config['session']['account_key'] ?? 'account_id';
                     $_SESSION[$a] = $accountId;
