@@ -31,16 +31,16 @@ class Accounts extends Splice
     use Shortcuts;
 
     /** @var array<string, string|array> $config */
-    private $config;
+    protected $config;
 
     /** @var TransportInterface $mailer */
-    private $mailer;
+    protected $mailer;
 
     /** @var SymmetricKey $passwordKey */
-    private $passwordKey;
+    protected $passwordKey;
 
     /** @var Environment $twig */
-    private $twig;
+    protected $twig;
 
     public function __construct(Container $container)
     {
