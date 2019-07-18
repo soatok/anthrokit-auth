@@ -227,9 +227,7 @@ class Authorize extends Endpoint
                 // Set purgatory state, show 2FA form
                 $a = $this->config['session']['halfauth_key'] ?? 'halfauth_id';
                 $_SESSION[$a] = $accountId;
-                return $this->view(
-                    $this->config['templates']['two-factor'] ?? 'two-factor.twig'
-                );
+                return $this->redirect($this->config['redirect']['two-factor']);
             } elseif ($accountId) {
                 // Login success
                 $a = $this->config['session']['account_key'] ?? 'account_id';

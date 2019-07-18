@@ -74,7 +74,8 @@ class Fursona
                 'logout-success' => '/',
                 'register' => '/register',
                 'twitter' => '/twitter',
-                'twitter-error' => '/'
+                'twitter-error' => '/',
+                'two-factor' => '/verify',
             ],
             'session' => [
                 'account_key' => 'account_id',
