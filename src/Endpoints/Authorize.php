@@ -245,8 +245,11 @@ class Authorize extends Endpoint
                 return $this->redirect(
                     $this->config['redirect']['auth-success']
                 );
+            } else {
+                $errors []= 'Incorrect username or passphrase';
             }
         }
+        $this->setTwigVar('errors', $errors);
         return $this->view(
             $this->config['templates']['login'] ?? 'login.twig',
             ['post' => $post]
