@@ -622,7 +622,7 @@ class Authorize extends Endpoint
                 }
                 $this->loginCallback($_SESSION[$b]);
                 $c = $this->config['session']['auth_redirect_key'] ?? 'auth_redirect';
-                if (isset($_SESSION[$b])) {
+                if (isset($_SESSION[$c])) {
                     return $this->redirect($_SESSION[$c]);
                 }
                 return $this->redirect(
