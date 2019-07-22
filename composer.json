@@ -30,7 +30,7 @@
     "ext-sodium": "*",
     "abraham/twitteroauth": "^1|^2",
     "kelunik/two-factor": "^1",
-    "soatok/anthrokit": "^0.5|^1",
+    "soatok/anthrokit": "^0|^1",
     "slim/slim": "^3.1",
     "twig/twig": "^2",
     "zendframework/zend-mail": "^2"
