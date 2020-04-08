@@ -559,8 +559,10 @@ class Authorize extends Endpoint
             $_SESSION['twitter_access_token'] = $access_token;
             $this->loginCallback($accountId);
             $b = $this->config['session']['auth_redirect_key'] ?? 'auth_redirect';
+            /** @var string $redirectUrl */
+            $redirectUrl = $_SESSION[$b];
             if (isset($_SESSION[$b])) {
-                return $this->redirect($_SESSION[$b]);
+                return $this->redirect($redirectUrl);
             }
             return $this->redirect(
                 $this->config['redirect']['auth-success']

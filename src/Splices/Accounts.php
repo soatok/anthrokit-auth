@@ -10,17 +10,23 @@ use ParagonIE\ConstantTime\{
 };
 use ParagonIE\HiddenString\HiddenString;
 use Slim\Container;
-use Soatok\AnthroKit\Auth\{Exceptions\AccountBannedException, Fursona, Shortcuts};
-use Soatok\AnthroKit\Auth\Exceptions\InviteRequiredException;
+use Soatok\AnthroKit\Auth\{
+    Exceptions\AccountBannedException,
+    Exceptions\InviteRequiredException,
+    Fursona,
+    Shortcuts
+};
 use Soatok\AnthroKit\Splice;
-use Soatok\DholeCrypto\Exceptions\CryptoException;
-use Soatok\DholeCrypto\Key\SymmetricKey;
-use Soatok\DholeCrypto\Password;
-use Soatok\DholeCrypto\Symmetric;
+use Soatok\DholeCrypto\{
+    Exceptions\CryptoException,
+    Key\SymmetricKey,
+    Password,
+    Symmetric
+};
 use SodiumException;
 use Twig\Environment;
-use Zend\Mail\Message;
-use Zend\Mail\Transport\TransportInterface;
+use Laminas\Mail\Message;
+use Laminas\Mail\Transport\TransportInterface;
 
 /**
  * Class Accounts

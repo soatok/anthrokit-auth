@@ -30,6 +30,8 @@
         <InternalProperty errorLevel="info" />
         <InternalClass errorLevel="info" />
 
+        <InvalidThrow errorLevel="info" />
+
         <MissingClosureReturnType errorLevel="info" />
         <MissingReturnType errorLevel="info" />
         <MissingPropertyType errorLevel="info" />
