@@ -450,6 +450,12 @@ class Authorize extends Endpoint
             $settings['consumer_key'],
             $settings['consumer_secret']
         );
+        if (!empty($settings['timeout'])) {
+            $twitter->setTimeouts(
+                (int) ($settings['timeout'] ?? 5),
+                (int) ($settings['timeout'] ?? 5)
+            );
+        }
 
         // Is this a callback request?
         if (!empty($routerParams)) {
